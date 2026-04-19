@@ -1,5 +1,17 @@
 # xsnv-dataset
 
+<p align="center">
+  <a href="https://huggingface.co/datasets/DownFlow/meizi"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Dataset-DownFlow%2Fmeizi-blue" alt="Dataset"></a>
+  <img src="https://img.shields.io/badge/org-xsnv-red" alt="xsnv">
+  <img src="https://img.shields.io/badge/April-2026-lightgrey" alt="Date">
+  <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/nodejs-20+-green?logo=node.js&logoColor=white" alt="Node.js">
+  <br><br>
+  <a href="http://oneclickamd.ai/github/GCStream/xsnv/blob/main/auto-label/notebook.ipynb"><img src="https://img.shields.io/badge/▶%20Run%20on-AMD%20OnClick%20AI-ED1C24?logo=amd&logoColor=white" alt="Run on AMD OnClick AI"></a>
+</p>
+
+---
+
 A dataset pipeline for downloading, labeling, and uploading Chinese beauty image albums.
 
 ## Workflow
