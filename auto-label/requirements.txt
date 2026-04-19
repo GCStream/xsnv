@@ -1,0 +1,23 @@
+# Core dependencies
+requests
+Pillow
+python-dotenv>=1.0.0
+transformers>=5.0.0
+huggingface-hub>=0.19.0
+datasets>=2.14.0
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Face detection
+insightface>=0.7.3
+onnxruntime>=1.17.0
+
+# Story detection
+imagehash>=4.3.0
+
+# YAML config
+pyyaml>=6.0.0
+
+# Optional: for advanced features
+opencv-python-headless>=4.9.0
+scikit-learn>=1.4.0

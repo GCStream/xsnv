@@ -1,0 +1,205 @@
+# Default Scoring Rules for AI Labeler
+# This config is used to test scoring combinations in the notebook
+# and exported as scoring_rules.yaml for production
+
+version: "1.0"
+
+scoring:
+  # Factor definitions with weights
+  factors:
+    face:
+      weight: 0.30
+      description: "Face quality, clarity, attractiveness"
+      sub_factors:
+        clarity: 0.4
+        attractiveness: 0.3
+        expression: 0.3
+
+    body:
+      weight: 0.15
+      description: "Body shape, proportions"
+      sub_factors:
+        shape: 0.5
+        proportions: 0.5
+
+    pose:
+      weight: 0.15
+      description: "Pose naturalness, composition"
+      sub_factors:
+        naturalness: 0.5
+        composition: 0.5
+
+    clothing:
+      weight: 0.10
+      description: "Outfit quality, fit, style"
+
+    background:
+      weight: 0.10
+      description: "Setting quality, relevance"
+
+    lighting:
+      weight: 0.10
+      description: "Light quality, direction"
+
+    composition:
+      weight: 0.10
+      description: "Framing, rule of thirds"
+
+  # Score mapping
+  score_mapping:
+    1: "严重质量问题：画面模糊、构图混乱、严重过曝或欠曝、主体不清晰、画质极差。"
+    2: "明显缺陷：细节丢失明显、构图不协调、光线不当、整体观感差。"
+    3: "中等问题：有一些画质问题、构图一般、光线不太好，需要改进。"
+    4: "略低于平均：基本可接受但有明显小瑕疵。"
+    5: "平均水平：可接受的普通照片，没有明显优点也没有明显缺点。"
+    6: "略高于平均：有点小优点，整体不错。"
+    7: "较好：质量不错，构图和光线都比较好，有小瑕疵。"
+    8: "很好：高质量照片，构图专业、光线优秀、细节丰富。"
+    9: "极好：完美无缺，专业级作品，各方面都优秀。"
+
+  # Story modifier (applied to base score)
+  story_modifier:
+    key_frame_bonus: 0.2
+    filler_penalty: -0.1
+
+  # Output field definitions
+  output_fields:
+    ai_score:
+      type: "integer"
+      range: [1, 9]
+      description: "Overall AI quality score"
+
+    ai_reason:
+      type: "string"
+      description: "Reasoning for the score"
+
+    ai_factors:
+      type: "dict"
+      description: "Individual factor scores"
+      keys: ["face", "body", "pose", "clothing", "background", "lighting", "composition"]
+
+  # vLLM prompt template
+  vllm_prompt: |
+    You are a professional photo critic. Please score this image 1-9 based on:
+
+    {% for factor, info in factors.items() %}
+    - {{factor}} (weight: {{info.weight}}): {{info.description}}
+    {% endfor %}
+
+    Score definitions:
+    {% for score, description in score_mapping.items() %}
+    {{score}}: {{description}}
+    {% endfor %}
+
+    Consider if this is a key frame or filler in its album story.
+    Key frame bonus: +{{story_modifier.key_frame_bonus}}
+    Filler penalty: {{story_modifier.filler_penalty}}
+
+    Output format:
+    ai_score: <1-9>
+    ai_reason: <brief explanation>
+    ai_factors: {face: <0-1>, body: <0-1>, pose: <0-1>, clothing: <0-1>, background: <0-1>, lighting: <0-1>, composition: <0-1>}
+
+# Face detection config
+face_detection:
+  model: "buffalo_l"
+  min_face_size: 30
+  similarity_threshold: 0.5
+  outlier_action: "move_to_noise"
+
+# Story detection config
+story_detection:
+  min_frames: 30
+  outfit_change_threshold: 0.85
+  pose_change_threshold: 0.9
+  location_change_window: 5
+
+# Noise categories
+noise_categories:
+  - non_main_face
+  - broken
+  - watermark
+  - blur
+  - duplicate
+
+# Tag categories (for AI tagging)
+tag_categories:
+  quality:
+    - 高质量
+    - 一般
+    - 模糊
+    - 清晰
+    - 过曝
+    - 欠曝
+    - 噪点
+    - 纯净
+
+  pose:
+    - 全身
+    - 半身
+    - 特写
+    - 站姿
+    - 坐姿
+    - 躺姿
+    - 蹲姿
+    - 跳姿
+
+  outfit:
+    - 泳装
+    - 内衣
+    - 睡衣
+    - 制服
+    - 校服
+    - 古装
+    - 休闲
+    - 正装
+
+  style:
+    - 性感
+    - 清纯
+    - 可爱
+    - 成熟
+    - 气质
+    - 冷艳
+    - 魅惑
+    - 清新
+
+  setting:
+    - 室内
+    - 室外
+    - 浴室
+    - 卧室
+    - 客厅
+    - 海边
+    - 工作室
+    - 街头
+
+  lighting:
+    - 自然光
+    - 柔光
+    - 硬光
+    - 逆光
+    - 侧光
+    - 顶光
+    - 暖光
+    - 冷光
+
+  composition:
+    - 居中
+    - 三分法
+    - 对角线
+    - 框架
+    - 对称
+    - 留白
+    - 满屏
+    - 特写
+
+  mood:
+    - 温馨
+    - 浪漫
+    - 神秘
+    - 俏皮
+    - 性感
+    - 优雅
+    - 酷帅
+    - 甜美
