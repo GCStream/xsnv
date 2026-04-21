@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XSNV Labeler</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0b;
+      --bg-secondary: #131315;
+      --bg-tertiary: #1c1c1f;
+      --bg-elevated: #242428;
+      --text-primary: #f0f0f2;
+      --text-secondary: #9898a0;
+      --text-muted: #5a5a64;
+      --accent: #e63946;
+      --accent-dim: #b82d38;
+      --accent-glow: rgba(230, 57, 70, 0.15);
+      --success: #2dd4bf;
+      --warning: #fbbf24;
+      --border: #2a2a30;
+      --border-focus: #404048;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+
+    .viewer-panel {
+      grid-column: 1;
+      grid-row: 2;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+      position: sticky;
+      top: 57px;
+      height: calc(100vh - 57px);
+    }
+
+    .viewer-main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .viewer-img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .album-progress-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 8px 16px;
+      background: var(--bg-secondary);
+      max-height: 120px;
+      overflow-y: auto;
+      align-content: flex-start;
+    }
+
+    .album-progress-segment {
+      width: 16px;
+      height: 16px;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      transition: background 0.15s ease;
+    }
+
+    .album-progress-segment.scored {
+      background: var(--accent);
+    }
+
+    .album-progress-segment.current {
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .album-progress-segment.score-high {
+      background: var(--success);
+    }
+
+    .album-progress-segment.score-mid {
+      background: var(--warning);
+    }
+
+    .album-progress-segment.score-low {
+      background: var(--accent-dim);
+    }
+
+    .side-panel {
+      grid-column: 2;
+      grid-row: 1 / -1;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .side-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .side-section-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .album-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .album-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .album-item:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .album-item.active {
+      background: var(--accent-glow);
+      border-color: var(--accent-dim);
+    }
+
+    .album-item.labeled::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--success);
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+
+    .album-name {
+      font-size: 13px;
+      font-weight: 400;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .album-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    header {
+      grid-column: 1 / -1;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: var(--accent);
+    }
+
+    .quick-start-btn {
+      padding: 6px 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: 4px;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .quick-start-btn:hover {
+      background: var(--accent-dim);
+    }
+
+    .logo span {
+      color: var(--text-muted);
+    }
+
+    .stats {
+      display: flex;
+      gap: 24px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .stats-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stats-value {
+      color: var(--text-primary);
+      font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-primary);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--border-focus);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-tab {
+      flex: 1;
+      padding: 6px 8px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-tab:hover {
+      background: var(--bg-elevated);
+    }
+
+    .filter-tab.active {
+      background: var(--accent-glow);
+      border-color: var(--accent-dim);
+      color: var(--accent);
+    }
+
+    .score-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .score-btn {
+      min-width: 36px;
+      padding: 6px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .score-btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--accent);
+    }
+
+    .score-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .score-btn.save-pending {
+      animation: pulse 0.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .tag-btn {
+      padding: 4px 10px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tag-btn:hover {
+      background: var(--bg-elevated);
+      border-color: var(--border-focus);
+    }
+
+    .tag-btn.active {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--bg-primary);
+    }
+
+    .metadata-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--bg-tertiary);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+
+    .viewer-empty {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--text-primary);
+      z-index: 1000;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      border-color: var(--success);
+    }
+
+    .slideshow-overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+    }
+
+    .slideshow-overlay.active {
+      display: flex;
+    }
+
+    .slideshow-viewer {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .slideshow-viewer img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .slideshow-viewer img.landscape {
+      width: 100%;
+      height: auto;
+      max-height: none;
+    }
+
+    .slideshow-viewer img.portrait {
+      height: 100%;
+      width: auto;
+      max-width: none;
+    }
+
+    .slideshow-bar {
+      height: 60px;
+      background: var(--bg-tertiary);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .slideshow-bar-segment {
+      width: 40px;
+      height: 40px;
+      background: var(--bg-elevated);
+      margin: 0 4px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .slideshow-bar-segment.current {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .slideshow-bar-segment.scored {
+      background: var(--accent);
+    }
+
+    .slideshow-bar-segment.scored.score-high {
+      background: var(--success);
+    }
+
+    .slideshow-bar-segment.scored.score-mid {
+      background: var(--warning);
+    }
+
+    .slideshow-bar-segment.scored.score-low {
+      background: var(--accent-dim);
+    }
+
+    .slideshow-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      gap: 12px;
+      z-index: 1001;
+    }
+
+    .slideshow-timer {
+      background: var(--bg-elevated);
+      padding: 8px 16px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+    }
+
+    .mode-indicator {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-left: 12px;
+    }
+
+    .mode-indicator.slideshow {
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .mode-indicator.rotate {
+      background: rgba(45, 212, 191, 0.15);
+      color: var(--success);
+    }
+
+    .score-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .score-modal.active {
+      display: flex;
+    }
+
+    .score-modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      text-align: center;
+      min-width: 320px;
+    }
+
+    .score-modal-title {
+      font-size: 18px;
+      margin-bottom: 24px;
+      color: var(--text-primary);
+    }
+
+    .score-modal-scores {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 24px;
+    }
+
+    .score-modal-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      font-size: 20px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .score-modal-btn:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+
+    .score-modal-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .score-modal-hint {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 16px;
+    }
+
+    .slideshow-progress {
+      height: 6px;
+      background: var(--bg-tertiary);
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      overflow: hidden;
+    }
+
+    .slideshow-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--warning));
+      width: 0%;
+      transition: width 0.1s linear;
+    }
+
+    .slideshow-overlay.rotate-mode .slideshow-viewer {
+      transform: rotate(90deg);
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .slideshow-overlay.rotate-mode .slideshow-viewer img.landscape {
+      width: 100vh;
+      height: auto;
+    }
+
+    .slideshow-overlay.rotate-mode .slideshow-viewer img.portrait {
+      height: 100vw;
+      width: auto;
+    }
+
+    .shortcuts-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: var(--bg-elevated);
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 1001;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+
+    .shortcuts-hint.visible {
+      opacity: 1;
+    }
+
+    .shortcuts-hint kbd {
+      background: var(--bg-tertiary);
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin: 0 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">XSNV<span>LABELER</span><div class="mode-indicator" id="mode-indicator"></div></div>
+      <button class="quick-start-btn" id="quick-start-btn">随机开始</button>
+      <div style="display:flex;gap:8px;margin-left:12px">
+        <button class="quick-start-btn" id="slideshow-btn" style="background:var(--success)">幻灯片(F)</button>
+        <button class="quick-start-btn" id="rotate-btn" style="background:var(--warning)">旋转(R)</button>
+      </div>
+      <div class="stats">
+        <div class="stats-item">
+          <span>Total:</span>
+          <span class="stats-value" id="total-count">0</span>
+        </div>
+        <div class="stats-item">
+          <span>Labeled:</span>
+          <span class="stats-value" id="labeled-count">0</span>
+        </div>
+        <div class="stats-item">
+          <span>Unlabeled:</span>
+          <span class="stats-value" id="unlabeled-count">0</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="viewer-panel">
+      <div class="viewer-main" id="viewer">
+        <div class="viewer-empty">选择相册开始标注</div>
+      </div>
+      <div class="album-progress-bar" id="album-progress-bar"></div>
+    </div>
+
+    <aside class="side-panel">
+      <div class="side-section">
+        <input type="text" class="search-input" id="search" placeholder="搜索相册...">
+        <div class="filter-tabs">
+          <button class="filter-tab active" data-filter="all">全部</button>
+          <button class="filter-tab" data-filter="unlabeled">未标注</button>
+          <button class="filter-tab" data-filter="labeled">已标注</button>
+        </div>
+      </div>
+      <div class="side-section">
+        <div class="side-section-title">相册列表</div>
+        <div class="album-list" id="album-list"></div>
+      </div>
+      <div class="side-section">
+        <div class="side-section-title">评分</div>
+        <div class="score-buttons" id="score-buttons"></div>
+      </div>
+      <div class="side-section">
+        <div class="side-section-title">快捷标签</div>
+        <div class="quick-tags" id="quick-tags"></div>
+      </div>
+      <div class="side-section">
+        <div class="side-section-title">图片信息</div>
+        <div class="metadata-panel" id="metadata"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="score-modal" id="score-modal">
+    <div class="score-modal-content">
+      <div class="score-modal-title">评价此相册</div>
+      <div class="score-modal-scores" id="score-modal-scores"></div>
+      <button class="score-modal-btn" id="score-modal-submit">确认</button>
+      <div class="score-modal-hint">按 <kbd>Esc</kbd> 取消</div>
+    </div>
+  </div>
+
+  <div class="shortcuts-hint" id="shortcuts-hint">
+    <kbd>Ctrl</kbd>+<kbd>F</kbd> 幻灯片模式 &nbsp;
+    <kbd>Ctrl</kbd>+<kbd>R</kbd> 旋转模式 &nbsp;
+    <kbd>Esc</kbd> 退出
+  </div>
+
+  <div class="slideshow-overlay" id="slideshow">
+    <div class="slideshow-controls">
+      <div class="slideshow-timer" id="timer">00:00</div>
+      <div class="score-buttons" id="slideshow-scores"></div>
+    </div>
+    <div class="slideshow-viewer" id="slideshow-viewer">
+      <div class="viewer-empty">无图片</div>
+    </div>
+    <div class="slideshow-bar" id="slideshow-bar"></div>
+    <div class="slideshow-progress">
+      <div class="slideshow-progress-fill" id="slideshow-progress-fill"></div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      albums: [],
+      currentAlbum: null,
+      currentImageIndex: 0,
+      images: [],
+      labels: {},
+      scoreLabels: {},
+      quickTags: [],
+      filter: 'all',
+      search: '',
+      slideshowActive: false,
+      slideshowRotate: false,
+      slideshowMode: null,
+      slideshowIndex: 0,
+      slideshowStartTime: 0,
+      slideshowInterval: null,
+      slideshowProgressStart: 0,
+      slideshowRendering: false,
+      viewTimes: [],
+      unlabeledAlbums: [],
+      unlabeledAlbumIndex: 0,
+      shuffledUnlabeled: [],
+      selectedScore: null,
+      scoreModalCallback: null
+    };
+
+    const API = {
+      async get(path) {
+        const res = await fetch(`/api${path}`);
+        return res.json();
+      },
+      async post(path, data) {
+        const res = await fetch(`/api${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        return res.json();
+      }
+    };
+
+    function shuffleArray(array) {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+
+    function showToast(message, type = '') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      setTimeout(() => toast.className = 'toast', 2000);
+    }
+
+    function showShortcutsHint() {
+      const hint = document.getElementById('shortcuts-hint');
+      hint.classList.add('visible');
+      setTimeout(() => hint.classList.remove('visible'), 4000);
+    }
+
+    async function loadAlbums() {
+      const summary = await API.get('/summary');
+      document.getElementById('total-count').textContent = summary.total;
+      document.getElementById('labeled-count').textContent = summary.labeled;
+      document.getElementById('unlabeled-count').textContent = summary.unlabeled;
+
+      const filterMap = { all: null, unlabeled: false, labeled: true };
+      const isLabeled = filterMap[state.filter];
+
+      state.albums = await API.get('/albums');
+      state.albums = state.albums.filter(a => {
+        if (isLabeled !== null && a.labeled !== isLabeled) return false;
+        if (state.search && !a.name.includes(state.search)) return false;
+        return true;
+      });
+
+      state.unlabeledAlbums = await API.get('/albums/unlabeled');
+      state.shuffledUnlabeled = shuffleArray(state.unlabeledAlbums);
+
+      renderAlbumList();
+    }
+
+    function renderAlbumList() {
+      const list = document.getElementById('album-list');
+      list.innerHTML = state.albums.map((album, i) => `
+        <div class="album-item ${album.labeled ? 'labeled' : ''} ${state.currentAlbum === album.name ? 'active' : ''}"
+             data-name="${album.name}" data-index="${i}">
+          <div class="album-name">${album.name}</div>
+          <div class="album-meta">${album.imageCount} 张图片</div>
+        </div>
+      `).join('');
+
+      list.querySelectorAll('.album-item').forEach(item => {
+        item.addEventListener('click', () => selectAlbum(item.dataset.name));
+      });
+    }
+
+    async function selectAlbum(name) {
+      if (state.currentAlbum === name) return;
+      state.currentAlbum = name;
+      state.currentImageIndex = 0;
+
+      const [album, labels] = await Promise.all([
+        API.get(`/albums/${encodeURIComponent(name)}`),
+        API.get(`/albums/${encodeURIComponent(name)}/labels`)
+      ]);
+
+      state.images = await API.get(`/albums/${encodeURIComponent(name)}/images`);
+      state.labels = labels || {};
+      state.viewTimes = new Array(state.images.length).fill(0);
+
+      renderAlbumList();
+      renderViewer();
+      updateMetadata();
+    }
+
+    function renderViewer() {
+      const viewer = document.getElementById('viewer');
+      if (!state.images.length) {
+        viewer.innerHTML = '<div class="viewer-empty">选择相册开始标注</div>';
+        return;
+      }
+
+      const img = state.images[state.currentImageIndex];
+      viewer.innerHTML = `<img class="viewer-img" src="/images/${encodeURIComponent(img)}" alt="${img}">`;
+      updateAlbumProgressBar();
+    }
+
+    function updateAlbumProgressBar() {
+      const bar = document.getElementById('album-progress-bar');
+      bar.innerHTML = state.images.map((img, i) => {
+        const label = state.labels.images?.[img] || {};
+        const score = label.score;
+        let cls = 'album-progress-segment';
+        if (score) cls += ' scored';
+        if (i === state.currentImageIndex) cls += ' current';
+        if (score === 1 || score === 2 || score === 3) cls += ' score-low';
+        else if (score === 4 || score === 5 || score === 6) cls += ' score-mid';
+        else if (score >= 7) cls += ' score-high';
+        return `<div class="${cls}" data-index="${i}"></div>`;
+      }).join('');
+
+      bar.querySelectorAll('.album-progress-segment').forEach(seg => {
+        seg.addEventListener('click', () => {
+          state.currentImageIndex = parseInt(seg.dataset.index);
+          renderViewer();
+          updateMetadata();
+        });
+      });
+    }
+
+    function updateMetadata() {
+      const meta = document.getElementById('metadata');
+      const img = state.images[state.currentImageIndex];
+      const imgLabel = state.labels.images?.[img] || {};
+
+      meta.innerHTML = `
+        <div style="margin-bottom:8px">${img}</div>
+        <div style="color:var(--text-muted);font-size:11px">${state.currentImageIndex + 1} / ${state.images.length}</div>
+        <div class="tags" style="margin-top:8px">
+          ${(imgLabel.tags || []).map(t => `<span class="metadata-tag">${t}</span>`).join('')}
+        </div>
+      `;
+
+      updateScoreButtons();
+      updateTagButtons();
+    }
+
+    function updateScoreButtons() {
+      const container = document.getElementById('score-buttons');
+      const img = state.images[state.currentImageIndex];
+      const imgLabel = state.labels.images?.[img] || {};
+      const currentScore = imgLabel.score;
+
+      container.innerHTML = Object.entries(state.scoreLabels).map(([score, label]) => `
+        <button class="score-btn ${currentScore == score ? 'active' : ''}" data-score="${score}">${score}</button>
+      `).join('');
+
+      container.querySelectorAll('.score-btn').forEach(btn => {
+        btn.addEventListener('click', () => setScore(parseInt(btn.dataset.score)));
+      });
+    }
+
+    function updateTagButtons() {
+      const container = document.getElementById('quick-tags');
+      const img = state.images[state.currentImageIndex];
+      const imgLabel = state.labels.images?.[img] || {};
+      const activeTags = imgLabel.tags || [];
+
+      container.innerHTML = state.quickTags.map(tag => `
+        <button class="tag-btn ${activeTags.includes(tag) ? 'active' : ''}" data-tag="${tag}">${tag}</button>
+      `).join('');
+
+      container.querySelectorAll('.tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => toggleTag(btn.dataset.tag));
+      });
+    }
+
+    async function setScore(score) {
+      const img = state.images[state.currentImageIndex];
+      const current = state.labels.images?.[img]?.score;
+
+      document.querySelector(`.score-btn[data-score="${score}"]`)?.classList.add('save-pending');
+
+      const success = await API.post(`/albums/${encodeURIComponent(state.currentAlbum)}/images/${encodeURIComponent(img)}/labels`, {
+        score: score === current ? undefined : score,
+        tags: state.labels.images?.[img]?.tags,
+        notes: state.labels.images?.[img]?.notes
+      });
+
+      if (success.success) {
+        state.labels.images = state.labels.images || {};
+        state.labels.images[img] = { ...state.labels.images[img], score };
+        showToast(`分数: ${score}`, 'success');
+      }
+
+      updateScoreButtons();
+    }
+
+    async function toggleTag(tag) {
+      const img = state.images[state.currentImageIndex];
+      const currentTags = state.labels.images?.[img]?.tags || [];
+      const newTags = currentTags.includes(tag)
+        ? currentTags.filter(t => t !== tag)
+        : [...currentTags, tag];
+
+      const success = await API.post(`/albums/${encodeURIComponent(state.currentAlbum)}/images/${encodeURIComponent(img)}/labels`, {
+        score: state.labels.images?.[img]?.score,
+        tags: newTags,
+        notes: state.labels.images?.[img]?.notes
+      });
+
+      if (success.success) {
+        state.labels.images = state.labels.images || {};
+        state.labels.images[img] = { ...state.labels.images[img], tags: newTags };
+        showToast(newTags.length ? `标签: ${newTags.join(', ')}` : '已清除标签', 'success');
+      }
+
+      updateTagButtons();
+    }
+
+    async function nextImage() {
+      if (state.currentImageIndex < state.images.length - 1) {
+        state.currentImageIndex++;
+        renderViewer();
+        updateMetadata();
+      }
+    }
+
+    async function prevImage() {
+      if (state.currentImageIndex > 0) {
+        state.currentImageIndex--;
+        renderViewer();
+        updateMetadata();
+      }
+    }
+
+    async function loadConfig() {
+      const config = await API.get('/config');
+      state.scoreLabels = config.scoreLabels;
+      state.quickTags = config.quickTags;
+
+      document.getElementById('quick-tags').innerHTML = state.quickTags.map(tag =>
+        `<button class="tag-btn" data-tag="${tag}">${tag}</button>`
+      ).join('');
+    }
+
+    function openScoreModal(callback) {
+      state.selectedScore = null;
+      state.scoreModalCallback = callback;
+      const modal = document.getElementById('score-modal');
+      const container = document.getElementById('score-modal-scores');
+      
+      container.innerHTML = Object.keys(state.scoreLabels).map(score => `
+        <button class="score-modal-btn" data-score="${score}">${score}</button>
+      `).join('');
+
+      container.querySelectorAll('.score-modal-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          container.querySelectorAll('.score-modal-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          state.selectedScore = parseInt(btn.dataset.score);
+        });
+      });
+
+      modal.classList.add('active');
+    }
+
+    function closeScoreModal() {
+      document.getElementById('score-modal').classList.remove('active');
+      state.scoreModalCallback = null;
+      state.selectedScore = null;
+    }
+
+    document.getElementById('score-modal-submit').addEventListener('click', () => {
+      if (state.selectedScore && state.scoreModalCallback) {
+        state.scoreModalCallback(state.selectedScore);
+      }
+      closeScoreModal();
+    });
+
+    document.getElementById('score-modal').addEventListener('click', (e) => {
+      if (e.target.id === 'score-modal') {
+        closeScoreModal();
+      }
+    });
+
+    let lastKeyTime = 0;
+    function handleKeydown(e) {
+      const now = Date.now();
+      if (now - lastKeyTime < 100) return;
+      lastKeyTime = now;
+
+      if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        showShortcutsHint();
+        if (state.slideshowActive && state.slideshowMode === 'normal') {
+          stopSlideshow();
+        } else {
+          startSlideshow('normal');
+        }
+        return;
+      }
+
+      if (e.ctrlKey && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        showShortcutsHint();
+        if (state.slideshowActive && state.slideshowMode === 'rotate') {
+          stopSlideshow();
+        } else {
+          startSlideshow('rotate');
+        }
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        if (state.slideshowActive) {
+          stopSlideshow();
+        }
+        closeScoreModal();
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!state.currentAlbum) {
+          selectRandomUnlabeledAlbum();
+        } else {
+          submitAndNextUnlabeled();
+        }
+        return;
+      }
+
+      if (!state.currentAlbum || !state.images.length || state.slideshowActive) return;
+
+      const key = e.key.toLowerCase();
+      const keyActions = {
+        'arrowleft': prevImage,
+        'arrowright': nextImage,
+        'a': prevImage,
+        'd': nextImage,
+        '1': () => setScore(1),
+        '2': () => setScore(2),
+        '3': () => setScore(3),
+        '4': () => setScore(4),
+        '5': () => setScore(5),
+        '6': () => setScore(6),
+        '7': () => setScore(7),
+        '8': () => setScore(8),
+        '9': () => setScore(9)
+      };
+
+      if (keyActions[key]) {
+        e.preventDefault();
+        keyActions[key]();
+      }
+    }
+
+    document.getElementById('search').addEventListener('input', e => {
+      state.search = e.target.value;
+      loadAlbums();
+    });
+
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.filter = tab.dataset.filter;
+        loadAlbums();
+      });
+    });
+
+    document.getElementById('quick-start-btn').addEventListener('click', () => {
+      selectRandomUnlabeledAlbum();
+    });
+
+    document.getElementById('slideshow-btn').addEventListener('click', () => {
+      showShortcutsHint();
+      if (state.slideshowActive && state.slideshowMode === 'normal') {
+        stopSlideshow();
+      } else {
+        startSlideshow('normal');
+      }
+    });
+
+    document.getElementById('rotate-btn').addEventListener('click', () => {
+      showShortcutsHint();
+      if (state.slideshowActive && state.slideshowMode === 'rotate') {
+        stopSlideshow();
+      } else {
+        startSlideshow('rotate');
+      }
+    });
+
+    document.addEventListener('keydown', handleKeydown);
+
+    async function loadNextUnlabeledAlbum() {
+      if (state.shuffledUnlabeled.length === 0) {
+        state.shuffledUnlabeled = shuffleArray(state.unlabeledAlbums);
+        state.unlabeledAlbumIndex = 0;
+      }
+      
+      if (state.shuffledUnlabeled.length === 0) {
+        showToast('没有更多未标注相册', '');
+        return false;
+      }
+
+      const album = state.shuffledUnlabeled[state.unlabeledAlbumIndex];
+      state.unlabeledAlbumIndex = (state.unlabeledAlbumIndex + 1) % state.shuffledUnlabeled.length;
+      
+      await selectAlbum(album.name);
+      return true;
+    }
+
+    async function startSlideshow(mode = 'normal') {
+      if (!state.currentAlbum || !state.images.length) {
+        const hasAlbum = await loadNextUnlabeledAlbum();
+        if (!hasAlbum) return;
+      }
+
+      state.slideshowActive = true;
+      state.slideshowMode = mode;
+      state.slideshowRotate = mode === 'rotate';
+      state.slideshowIndex = 0;
+      state.slideshowStartTime = Date.now();
+      state.slideshowProgressStart = Date.now();
+      state.viewTimes = new Array(state.images.length).fill(0);
+
+      const slideshow = document.getElementById('slideshow');
+      slideshow.classList.add('active');
+      if (state.slideshowRotate) {
+        slideshow.classList.add('rotate-mode');
+      } else {
+        slideshow.classList.remove('rotate-mode');
+      }
+
+      const indicator = document.getElementById('mode-indicator');
+      indicator.textContent = mode === 'rotate' ? 'ROTATE' : 'SLIDESHOW';
+      indicator.className = `mode-indicator ${mode === 'rotate' ? 'rotate' : 'slideshow'}`;
+
+      renderSlideshowViewer();
+      updateSlideshowTimer();
+      preloadNearby();
+      
+      if (state.slideshowInterval) clearInterval(state.slideshowInterval);
+      state.slideshowInterval = setInterval(advanceSlideshow, 1000);
+
+      showToast(mode === 'rotate' ? '旋转模式已启动' : '幻灯片模式已启动', 'success');
+    }
+
+    function advanceSlideshow() {
+      if (!state.slideshowActive || state.slideshowRendering) return;
+      
+      const currentTime = Date.now();
+      const elapsed = (currentTime - state.slideshowProgressStart) / 1000;
+      state.viewTimes[state.slideshowIndex] = Math.min(elapsed, 10);
+      
+      updateSlideshowProgress();
+
+      if (state.slideshowIndex < state.images.length - 1) {
+        state.slideshowIndex++;
+        state.slideshowProgressStart = currentTime;
+        renderSlideshowViewer();
+      } else {
+        finishSlideshow();
+      }
+    }
+
+    function finishSlideshow() {
+      if (state.slideshowInterval) {
+        clearInterval(state.slideshowInterval);
+        state.slideshowInterval = null;
+      }
+
+      const viewedCount = state.viewTimes.filter(t => t > 0.3).length;
+      const totalImages = state.images.length;
+      const ratio = viewedCount / totalImages;
+      const autoScore = Math.max(1, Math.min(9, Math.round(ratio * 9)));
+
+      openScoreModal(async (score) => {
+        const albumScore = score;
+        
+        for (let i = 0; i < state.images.length; i++) {
+          const img = state.images[i];
+          const viewTime = state.viewTimes[i];
+          let imgScore;
+          
+          if (viewTime > 0.3) {
+            const viewRatio = viewTime / 10;
+            imgScore = Math.max(1, Math.min(9, Math.round(viewRatio * 9)));
+          } else {
+            imgScore = albumScore;
+          }
+
+          await API.post(`/albums/${encodeURIComponent(state.currentAlbum)}/images/${encodeURIComponent(img)}/labels`, {
+            score: imgScore,
+            tags: state.labels.images?.[img]?.tags,
+            notes: state.labels.images?.[img]?.notes
+          });
+        }
+
+        await API.post(`/albums/${encodeURIComponent(state.currentAlbum)}/labels`, {
+          score: albumScore,
+          tags: [],
+          notes: `通过${state.slideshowRotate ? '旋转' : '幻灯片'}模式评分`
+        });
+
+        showToast(`已保存相册分数: ${albumScore}`, 'success');
+        loadNextUnlabeledAlbum();
+      });
+
+      stopSlideshow();
+    }
+
+    function stopSlideshow() {
+      state.slideshowActive = false;
+      state.slideshowMode = null;
+      state.slideshowRotate = false;
+      
+      if (state.slideshowInterval) {
+        clearInterval(state.slideshowInterval);
+        state.slideshowInterval = null;
+      }
+
+      const slideshow = document.getElementById('slideshow');
+      slideshow.classList.remove('active');
+      slideshow.classList.remove('rotate-mode');
+
+      const indicator = document.getElementById('mode-indicator');
+      indicator.textContent = '';
+      indicator.className = 'mode-indicator';
+    }
+
+    function renderSlideshowViewer() {
+      if (state.slideshowRendering) return;
+      
+      const viewer = document.getElementById('slideshow-viewer');
+      const imgName = state.images[state.slideshowIndex];
+      const imgPath = `/images/${encodeURIComponent(imgName)}`;
+      
+      let existingImg = viewer.querySelector('img');
+      
+      if (existingImg) {
+        if (existingImg.src.includes(decodeURIComponent(imgPath))) {
+          updateSlideshowBar();
+          updateSlideshowScores();
+          preloadNearby();
+          return;
+        }
+        existingImg.onload = null;
+        existingImg.onerror = null;
+      }
+
+      state.slideshowRendering = true;
+      
+      if (!existingImg) {
+        existingImg = document.createElement('img');
+        viewer.appendChild(existingImg);
+      }
+      
+      existingImg.onload = () => {
+        const isLandscape = existingImg.width >= existingImg.height;
+        existingImg.className = isLandscape ? 'landscape' : 'portrait';
+        existingImg.style.display = 'block';
+        state.slideshowRendering = false;
+        updateSlideshowBar();
+        updateSlideshowScores();
+        preloadNearby();
+      };
+      existingImg.onerror = () => {
+        existingImg.style.display = 'none';
+        state.slideshowRendering = false;
+        updateSlideshowBar();
+        updateSlideshowScores();
+        preloadNearby();
+      };
+      existingImg.src = imgPath;
+      existingImg.style.display = 'none';
+    }
+
+    function preloadNearby() {
+      const current = state.slideshowIndex;
+      const toPreload = [current + 1, current + 2];
+      
+      toPreload.forEach(idx => {
+        if (idx >= 0 && idx < state.images.length) {
+          const imgName = state.images[idx];
+          const imgPath = `/images/${encodeURIComponent(imgName)}`;
+          const preloader = new Image();
+          preloader.src = imgPath;
+        }
+      });
+    }
+
+    function updateSlideshowBar() {
+      const bar = document.getElementById('slideshow-bar');
+      const total = state.images.length;
+      const current = state.slideshowIndex;
+      const radius = 1;
+      const visibleIndices = [];
+      
+      for (let i = current - radius; i <= current + radius; i++) {
+        if (i >= 0 && i < total) visibleIndices.push(i);
+      }
+      
+      bar.innerHTML = state.images.map((img, i) => {
+        if (!visibleIndices.includes(i)) return '';
+        
+        const label = state.labels.images?.[img] || {};
+        const score = label.score;
+        let cls = 'slideshow-bar-segment';
+        if (score) {
+          cls += ' scored';
+          if (score >= 7) cls += ' score-high';
+          else if (score >= 5) cls += ' score-mid';
+          else cls += ' score-low';
+        }
+        if (i === current) cls += ' current';
+        return `<div class="${cls}" data-index="${i}"></div>`;
+      }).join('');
+      
+      bar.style.justifyContent = 'center';
+      
+      bar.querySelectorAll('.slideshow-bar-segment').forEach(seg => {
+        seg.addEventListener('click', () => {
+          const currentTime = Date.now();
+          const elapsed = (currentTime - state.slideshowProgressStart) / 1000;
+          state.viewTimes[state.slideshowIndex] = Math.min(elapsed, 10);
+          
+          state.slideshowIndex = parseInt(seg.dataset.index);
+          state.slideshowProgressStart = currentTime;
+          renderSlideshowViewer();
+        });
+      });
+    }
+
+    function updateSlideshowScores() {
+      const container = document.getElementById('slideshow-scores');
+      const img = state.images[state.slideshowIndex];
+      const imgLabel = state.labels.images?.[img] || {};
+      const currentScore = imgLabel.score;
+
+      container.innerHTML = Object.keys(state.scoreLabels).map(score => `
+        <button class="score-btn ${currentScore == score ? 'active' : ''}" data-score="${score}">${score}</button>
+      `).join('');
+
+      container.querySelectorAll('.score-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const currentTime = Date.now();
+          const elapsed = (currentTime - state.slideshowProgressStart) / 1000;
+          state.viewTimes[state.slideshowIndex] = Math.min(elapsed, 10);
+          
+          await setSlideshowScore(parseInt(btn.dataset.score));
+        });
+      });
+    }
+
+    function updateSlideshowProgress() {
+      const total = state.images.length;
+      const viewed = state.viewTimes.filter(t => t > 0).length;
+      const progress = (viewed / total) * 100;
+      document.getElementById('slideshow-progress-fill').style.width = `${progress}%`;
+    }
+
+    async function setSlideshowScore(score) {
+      const img = state.images[state.slideshowIndex];
+      const current = state.labels.images?.[img]?.score;
+
+      const success = await API.post(`/albums/${encodeURIComponent(state.currentAlbum)}/images/${encodeURIComponent(img)}/labels`, {
+        score: score === current ? undefined : score,
+        tags: state.labels.images?.[img]?.tags,
+        notes: state.labels.images?.[img]?.notes
+      });
+
+      if (success.success) {
+        state.labels.images = state.labels.images || {};
+        state.labels.images[img] = { ...state.labels.images[img], score: score === current ? undefined : score };
+      }
+
+      const idx = state.slideshowIndex;
+      if (idx < state.images.length - 1) {
+        state.slideshowIndex = idx + 1;
+        state.slideshowProgressStart = Date.now();
+        renderSlideshowViewer();
+      } else {
+        finishSlideshow();
+      }
+    }
+
+    function updateSlideshowTimer() {
+      if (!state.slideshowActive) return;
+      const elapsed = Math.floor((Date.now() - state.slideshowStartTime) / 1000);
+      const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+      const secs = (elapsed % 60).toString().padStart(2, '0');
+      document.getElementById('timer').textContent = `${mins}:${secs}`;
+      requestAnimationFrame(updateSlideshowTimer);
+    }
+
+    async function submitAndNextUnlabeled() {
+      const albums = await API.get('/albums/unlabeled');
+      if (albums.length === 0) {
+        showToast('没有更多未标注相册', '');
+        return;
+      }
+      const randomAlbum = albums[Math.floor(Math.random() * albums.length)];
+      await selectAlbum(randomAlbum.name);
+      showToast(`已切换: ${randomAlbum.name}`, 'success');
+    }
+
+    async function selectRandomUnlabeledAlbum() {
+      const albums = await API.get('/albums/unlabeled');
+      if (albums.length === 0) {
+        showToast('没有更多未标注相册', '');
+        return;
+      }
+      const randomAlbum = albums[Math.floor(Math.random() * albums.length)];
+      await selectAlbum(randomAlbum.name);
+      showToast(`已加载: ${randomAlbum.name}`, 'success');
+    }
+
+    loadConfig().then(loadAlbums);
+  </script>
+</body>
+</html>

@@ -4,7 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const PROJECT_ROOT = path.join(__dirname, '..', '..');
+const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const DOWNLOADS_DIR = path.join(PROJECT_ROOT, 'downloads');
 const LABELS_DIR = path.join(PROJECT_ROOT, 'labels');
 
