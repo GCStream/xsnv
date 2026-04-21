@@ -58,3 +58,8 @@ temp/
 
 # Env
 .env
+
+node_modules/
+
+view/.playwright-mcp/
+view/node_modules/
